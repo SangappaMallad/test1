@@ -1,14 +1,7 @@
+from fastapi import FastAPI
 
-from fastapi.testclient import TestClient
+app = FastAPI()
 
-from app.main import app
-
-
-client = TestClient()
-
-def test_health():
-    response = client.get("/")
-
-    assert response.status_code == 200
-
-
+@app.get("/")
+def health_check():
+    return {"message": "API is running on local server"}
