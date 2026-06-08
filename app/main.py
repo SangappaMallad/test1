@@ -1,48 +1,45 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, Depends
+from sqlalchemy.orm import Session
+
+from app.database import engine, SessionLocal
+from app.models import Product
+from app.schemas import ProductCreate
+
+from app.database import Base
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# Dummy database
-products = []
 
-class Product(BaseModel):
-    id: int
-    name: str
-    price: float
-
-
-@app.get("/")
-def health_check():
-    return {"message": "API is running on local server"}
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
-# Get all products
-@app.get("/products")
-def get_products():
-    return products
-
-
-# Add product
 @app.post("/products")
-def add_product(product: Product):
-    products.append(product.dict())
-    return {
-        "message": "Product added successfully",
-        "product": product
-    }
+def create_product(
+    product: ProductCreate,
+    db: Session = Depends(get_db)
+):
 
-
-# Delete product by id
-@app.delete("/products/{product_id}")
-def delete_product(product_id: int):
-
-    for product in products:
-        if product["id"] == product_id:
-            products.remove(product)
-            return {"message": "Product deleted successfully"}
-
-    raise HTTPException(
-        status_code=404,
-        detail="Product not found"
+    new_product = Product(
+        name=product.name,
+        price=product.price
     )
+
+    db.add(new_product)
+    db.commit()
+    db.refresh(new_product)
+
+    return new_product
+
+
+@app.get("/products")
+def get_products(
+    db: Session = Depends(get_db)
+):
+    return db.query(Product).all()
